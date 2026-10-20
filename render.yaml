@@ -1,0 +1,20 @@
+# Render static site. The app is a client-side PWA: no API service.
+services:
+  - type: web
+    name: ride-dj
+    runtime: static
+    buildCommand: npm ci && npm run build
+    staticPublishPath: dist
+    routes:
+      - type: rewrite
+        source: /*
+        destination: /index.html
+    headers:
+      - path: /*
+        name: X-Frame-Options
+        value: DENY
+      - path: /assets/*
+        name: Cache-Control
+        value: public, max-age=31536000, immutable
+    previews:
+      generation: automatic
