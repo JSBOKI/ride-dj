@@ -3,7 +3,7 @@ import { Pause, Play, SkipForward } from "lucide-react"
 import type { MixEngine } from "../audio/engine.ts"
 import { Button } from "./ui/button.tsx"
 import { formatBpm, formatClock } from "../lib/format.ts"
-import { PHASE_META, shapeLabel } from "../lib/phase.ts"
+import { PHASE_META, segmentLabel, shapeLabel } from "../lib/phase.ts"
 import type { IntensityShape, MixPlan } from "../lib/types.ts"
 import { useMediaSession } from "../hooks/useMediaSession.ts"
 import { useWakeLock } from "../hooks/useWakeLock.ts"
@@ -131,6 +131,7 @@ export function PlayerScreen({ engine, plan, shape, elapsedBase, onAdjust, onBac
                 <div
                   key={`${item.mixStart}-${index}`}
                   title={`${PHASE_META[item.phase].label} · ${item.trackName}`}
+                  className="h-full border-r border-background/70"
                   style={{
                     width: `${((visualEnd - item.mixStart) / total) * 100}%`,
                     background: PHASE_META[item.phase].color,
@@ -156,7 +157,7 @@ export function PlayerScreen({ engine, plan, shape, elapsedBase, onAdjust, onBac
       </div>
 
       <div>
-        <p className="truncate text-lg font-medium">{ended ? "Ride complete" : segment.trackName}</p>
+        <p className="truncate text-lg font-medium">{ended ? "Ride complete" : segmentLabel(segment)}</p>
         <p className="text-sm text-muted-foreground">
           {shapeLabel(shape)} · {formatClock(total)} planned
           {wake.supported ? (wake.held ? " · screen stays on" : " · wake lock idle") : ""}
@@ -184,8 +185,20 @@ export function PlayerScreen({ engine, plan, shape, elapsedBase, onAdjust, onBac
         </Button>
       </div>
       <Button className="h-12" variant="secondary" onClick={() => engine.skipToNext()} type="button">
-        <SkipForward /> Skip to next segment
+        <SkipForward /> Skip to next song
       </Button>
+      {plan.segments.length > 1 && (
+        <ul className="flex flex-col gap-1 text-sm">
+          {plan.segments.slice(0, 8).map((item, index) => (
+            <li key={`${item.mixStart}-${index}`} className="flex justify-between gap-3">
+              <span className={index === engine.segmentIndexAt(mixTime) ? "truncate font-medium" : "truncate text-muted-foreground"}>
+                {segmentLabel(item)}
+              </span>
+              <span className="shrink-0 tabular-nums text-muted-foreground">{formatClock(item.mixEnd - item.mixStart)}</span>
+            </li>
+          ))}
+        </ul>
+      )}
     </div>
   )
 }

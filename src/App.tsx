@@ -5,7 +5,7 @@ import { LibraryScreen } from "./components/LibraryScreen.tsx"
 import { PlayerScreen } from "./components/PlayerScreen.tsx"
 import { SetupScreen } from "./components/SetupScreen.tsx"
 import { planMix } from "./lib/planner.ts"
-import type { IntensityShape, MixPlan } from "./lib/types.ts"
+import type { IntensityShape, MixMode, MixPlan } from "./lib/types.ts"
 import { LibraryProvider, readStoredSetup, useLibrary } from "./state/library.tsx"
 
 type View = "library" | "setup" | "player"
@@ -26,6 +26,7 @@ function RideApp() {
   const [view, setView] = useState<View>("library")
   const [minutes, setMinutes] = useState(stored.minutes)
   const [shape, setShape] = useState<IntensityShape>(stored.shape)
+  const [mode, setMode] = useState<MixMode>("intact")
   const [plan, setPlan] = useState<MixPlan | null>(null)
   const [elapsedBase, setElapsedBase] = useState(0)
   const [starting, setStarting] = useState(false)
@@ -53,7 +54,7 @@ function RideApp() {
     setStarting(true)
     setRideError(null)
     try {
-      const next = planMix(tracks, minutes * 60, shape)
+      const next = planMix(tracks, minutes * 60, shape, { mode })
       const buffers = new Map<string, AudioBuffer>()
       for (const track of tracks) {
         const blob = await library.audioFor(track.id)
@@ -83,7 +84,10 @@ function RideApp() {
     const requested = Math.min(180 * 60, Math.max(60, elapsed + (plan.duration - live) + delta))
     const remaining = Math.max(30, requested - elapsed)
     const anchor = engine.currentSegment(live)?.trackId
-    const next = planMix(tracks, remaining, shape, anchor ? { anchorTrackId: anchor } : {})
+    const next = planMix(tracks, remaining, shape, {
+      mode,
+      ...(anchor ? { anchorTrackId: anchor } : {}),
+    })
     const wasPlaying = engine.isPlaying
     engine.loadPlan(next.segments)
     if (wasPlaying) engine.play()
@@ -112,8 +116,10 @@ function RideApp() {
           <SetupScreen
             minutes={minutes}
             shape={shape}
+            mode={mode}
             onMinutes={changeMinutes}
             onShape={changeShape}
+            onMode={setMode}
             onStart={() => void startRide()}
             starting={starting}
           />

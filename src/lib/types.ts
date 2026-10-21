@@ -43,9 +43,18 @@ export interface MixSegment {
   mixEnd: number
   /** Overlap with the previous segment, in output seconds. */
   crossfadeIn: number
-  /** 0 when segments abut. 8 or 16 when two tracks blend. */
-  crossfadeBars: 0 | 8 | 16
+  /** 0 when segments abut. 8 or 16 in Remix. 16 or 32 between intact songs. */
+  crossfadeBars: 0 | 8 | 16 | 32
+  /**
+   * Equal-power overlap between loop passes, in output seconds.
+   * 0 plays a hard loop (Remix) or a single pass.
+   */
+  seam: number
+  /** Which part of the song this block is. Intact songs use at most intro, groove, and outro. */
+  part: "song" | "intro" | "groove" | "outro"
 }
+
+export type MixMode = "intact" | "remix"
 
 export interface MixPlan {
   segments: MixSegment[]
@@ -53,6 +62,7 @@ export interface MixPlan {
   target: number
   masterBpm: number
   shape: IntensityShape
+  mode: MixMode
 }
 
 export interface BpmResult {

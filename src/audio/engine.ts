@@ -1,4 +1,5 @@
 import { clamp } from "../lib/format.ts"
+import { loopPasses } from "../lib/planner.ts"
 import type { MixSegment } from "../lib/types.ts"
 
 /**
@@ -15,7 +16,7 @@ export class MixEngine {
   private origin = 0
   private pausedAt = 0
   private timer = 0
-  private scheduled = new Set<number>()
+  private scheduled = new Set<string>()
   private readonly lookahead = 12
 
   /** Call synchronously from a tap or click so Safari will start audio. */
@@ -74,6 +75,14 @@ export class MixEngine {
   skipToNext(): void {
     const time = this.currentMixTime()
     const index = this.segmentIndexAt(time)
+    const current = this.segments[index]
+    for (let cursor = index + 1; cursor < this.segments.length; cursor++) {
+      const candidate = this.segments[cursor]
+      if (!current || candidate.trackId !== current.trackId) {
+        this.seek(candidate.mixStart)
+        return
+      }
+    }
     const next = this.segments[index + 1]
     if (!next) {
       this.seek(this.duration)
@@ -130,11 +139,9 @@ export class MixEngine {
     const horizon = mixTime + this.lookahead
     for (let index = 0; index < this.segments.length; index++) {
       const segment = this.segments[index]
-      if (this.scheduled.has(index)) continue
       if (segment.mixEnd <= mixTime + 0.03) continue
       if (segment.mixStart > horizon) continue
-      this.schedule(index)
-      this.scheduled.add(index)
+      this.schedule(index, mixTime, horizon)
     }
     if (mixTime >= this.duration - 0.03) {
       this.pausedAt = this.duration
@@ -144,7 +151,56 @@ export class MixEngine {
     }
   }
 
-  private schedule(index: number): void {
+  private schedule(index: number, mixTime: number, horizon: number): void {
+    const segment = this.segments[index]
+    if (segment.seam > 0.02 && segment.repeats > 1.001) {
+      const passes = loopPasses(segment)
+      for (let passIndex = 0; passIndex < passes.length; passIndex++) {
+        const pass = passes[passIndex]
+        const passStart = segment.mixStart + pass.outputStart
+        const passEnd = passStart + pass.outputLength
+        if (passEnd <= mixTime + 0.03) continue
+        if (passStart > horizon) break
+        const key = `${index}:${passIndex}`
+        if (this.scheduled.has(key)) continue
+        this.scheduled.add(key)
+        this.startSlice(index, {
+          mixStart: passStart,
+          mixEnd: Math.min(segment.mixEnd, passEnd),
+          sourceOffset: segment.loopStart,
+          sourceDuration: pass.sourceDuration,
+          seamIn: passIndex > 0 ? segment.seam : 0,
+          seamOut: passIndex < passes.length - 1 ? segment.seam : 0,
+        })
+      }
+      return
+    }
+    const key = `${index}:0`
+    if (this.scheduled.has(key)) return
+    this.scheduled.add(key)
+    this.startSlice(index, {
+      mixStart: segment.mixStart,
+      mixEnd: segment.mixEnd,
+      sourceOffset: segment.loopStart,
+      sourceDuration: (segment.loopEnd - segment.loopStart) * segment.repeats,
+      seamIn: 0,
+      seamOut: 0,
+      nativeLoop: segment.repeats > 1.001,
+    })
+  }
+
+  private startSlice(
+    index: number,
+    slice: {
+      mixStart: number
+      mixEnd: number
+      sourceOffset: number
+      sourceDuration: number
+      seamIn: number
+      seamOut: number
+      nativeLoop?: boolean
+    },
+  ): void {
     const ctx = this.ctx
     if (!ctx) return
     const segment = this.segments[index]
@@ -153,21 +209,20 @@ export class MixEngine {
     try {
       const loopStart = clamp(segment.loopStart, 0, Math.max(0, buffer.duration - 0.02))
       const loopEnd = clamp(segment.loopEnd, loopStart + 0.02, buffer.duration)
-      const phrase = loopEnd - loopStart
-      const totalSource = phrase * segment.repeats
       const nowMix = Math.max(0, ctx.currentTime - this.origin)
-      const startMix = Math.max(segment.mixStart, nowMix)
-      if (startMix >= segment.mixEnd - 0.015) return
-      const intoSource = (startMix - segment.mixStart) * segment.playbackRate
-      const remaining = totalSource - intoSource
+      const startMix = Math.max(slice.mixStart, nowMix)
+      if (startMix >= slice.mixEnd - 0.015) return
+      const into = (startMix - slice.mixStart) * segment.playbackRate
+      const remaining = slice.sourceDuration - into
       if (remaining <= 0.015) return
-      const offset = loopStart + (intoSource % phrase)
+      const phrase = Math.max(0.02, loopEnd - loopStart)
+      const offset = slice.nativeLoop ? loopStart + (into % phrase) : slice.sourceOffset + into
       const when = Math.max(ctx.currentTime + 0.02, this.origin + startMix)
 
       const source = ctx.createBufferSource()
       source.buffer = buffer
       source.playbackRate.value = segment.playbackRate
-      if (segment.repeats > 1.001 || intoSource + 0.001 > phrase) {
+      if (slice.nativeLoop) {
         source.loop = true
         source.loopStart = loopStart
         source.loopEnd = loopEnd
@@ -179,11 +234,11 @@ export class MixEngine {
       filter.frequency.setValueAtTime(35, when)
 
       const gain = ctx.createGain()
-      this.automate(gain, filter, index, when, startMix)
+      this.automate(gain, filter, index, when, startMix, slice)
       source.connect(filter)
       filter.connect(gain)
       gain.connect(ctx.destination)
-      source.start(when, Math.min(offset, buffer.duration - 0.01), remaining)
+      source.start(when, clamp(offset, 0, Math.max(0, buffer.duration - 0.01)), remaining)
       this.nodes.push(source)
     } catch (error) {
       console.warn("Ride DJ skipped a segment", error)
@@ -196,36 +251,58 @@ export class MixEngine {
     index: number,
     now: number,
     startMix: number,
+    slice: { mixStart: number; mixEnd: number; seamIn: number; seamOut: number },
   ): void {
     const segment = this.segments[index]
     const next = this.segments[index + 1]
-    const fadeOut = next && next.trackId !== segment.trackId ? next.crossfadeIn : 0
-    const fadeIn = segment.crossfadeIn
-    const ctxAt = (mixTime: number) => this.origin + mixTime
-    const fadeInEnd = ctxAt(segment.mixStart + fadeIn)
-    const fadeOutStart = ctxAt(segment.mixEnd - fadeOut)
-    const fadeOutEnd = ctxAt(segment.mixEnd)
-
-    let value = 1
-    if (fadeIn > 0.02 && startMix < segment.mixStart + fadeIn) {
-      value = Math.sin(clamp((startMix - segment.mixStart) / fadeIn, 0, 1) * (Math.PI / 2))
+    const songFadeOut = next && next.crossfadeIn > 0 ? next.crossfadeIn : 0
+    const songFadeIn = segment.crossfadeIn
+    const bassSwap = Boolean(next && next.trackId !== segment.trackId && songFadeOut > 0.02)
+    const endMix = Math.min(slice.mixEnd, segment.mixEnd)
+    const from = Math.max(now, this.origin + startMix)
+    const to = this.origin + endMix
+    if (to <= from + 0.02) return
+    const samples = Math.min(512, Math.max(8, Math.ceil((to - from) / 0.08)))
+    const curve = new Float32Array(samples)
+    const mix0 = from - this.origin
+    const mix1 = to - this.origin
+    for (let point = 0; point < samples; point++) {
+      const mixAt = mix0 + ((mix1 - mix0) * point) / Math.max(1, samples - 1)
+      curve[point] = Math.max(0.0001, this.envelope(segment, mixAt, slice, songFadeIn, songFadeOut))
     }
-    if (fadeOut > 0.02 && startMix > segment.mixEnd - fadeOut) {
-      value = Math.cos(clamp((startMix - (segment.mixEnd - fadeOut)) / fadeOut, 0, 1) * (Math.PI / 2))
-    }
-    const level = gain.gain
-    level.setValueAtTime(Math.max(0.0001, value), now)
-    if (fadeIn > 0.02 && fadeInEnd > now + 0.03) level.linearRampToValueAtTime(1, fadeInEnd)
-    if (fadeOut > 0.02 && fadeOutEnd > now + 0.06) {
-      const hold = Math.max(now + 0.04, fadeIn > 0 ? fadeInEnd : now, fadeOutStart)
-      if (hold < fadeOutEnd - 0.04) level.linearRampToValueAtTime(1, hold)
-      level.linearRampToValueAtTime(0.0001, fadeOutEnd)
-      const sweepFrom = Math.max(now + 0.03, fadeOutStart)
-      if (sweepFrom < fadeOutEnd - 0.05) {
+    gain.gain.setValueCurveAtTime(curve, from, to - from)
+    if (bassSwap) {
+      const fadeOutStart = this.origin + (segment.mixEnd - songFadeOut)
+      const fadeOutEnd = this.origin + segment.mixEnd
+      const sweepFrom = Math.max(from + 0.03, fadeOutStart)
+      if (sweepFrom < fadeOutEnd - 0.05 && sweepFrom < to) {
         filter.frequency.setValueAtTime(35, sweepFrom)
-        filter.frequency.exponentialRampToValueAtTime(280, fadeOutEnd)
+        filter.frequency.exponentialRampToValueAtTime(280, Math.min(fadeOutEnd, to))
       }
     }
+  }
+
+  private envelope(
+    segment: MixSegment,
+    mixAt: number,
+    slice: { mixStart: number; mixEnd: number; seamIn: number; seamOut: number },
+    songFadeIn: number,
+    songFadeOut: number,
+  ): number {
+    let value = 1
+    if (songFadeIn > 0.02 && mixAt < segment.mixStart + songFadeIn) {
+      value *= Math.sin(clamp((mixAt - segment.mixStart) / songFadeIn, 0, 1) * (Math.PI / 2))
+    }
+    if (songFadeOut > 0.02 && mixAt > segment.mixEnd - songFadeOut) {
+      value *= Math.cos(clamp((mixAt - (segment.mixEnd - songFadeOut)) / songFadeOut, 0, 1) * (Math.PI / 2))
+    }
+    if (slice.seamIn > 0.02 && mixAt < slice.mixStart + slice.seamIn) {
+      value *= Math.sin(clamp((mixAt - slice.mixStart) / slice.seamIn, 0, 1) * (Math.PI / 2))
+    }
+    if (slice.seamOut > 0.02 && mixAt > slice.mixEnd - slice.seamOut) {
+      value *= Math.cos(clamp((mixAt - (slice.mixEnd - slice.seamOut)) / slice.seamOut, 0, 1) * (Math.PI / 2))
+    }
+    return value
   }
 
   private stopSources(): void {

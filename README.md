@@ -24,10 +24,10 @@ npm run preview  # serve the production build
 ## What a ride does
 
 1. Each track gets a BPM and beat grid from an onset autocorrelation, and section boundaries from bar-by-bar energy changes.
-2. Songs are ordered by energy to match the intensity shape: full ride (warm-up, build, peak, cool-down), or a single shape.
-3. The planner fills the target with phrase-aligned 8, 16, and 32 bar sections. Short crates loop the phrases that fit the phase (high-energy loops in the peak). Long crates drop sections.
-4. Neighboring tracks crossfade over 8 or 16 bars, beat-aligned. The outgoing track loses its low end during the blend. Playback rate stays within ±6% of the original so tempos can meet without sounding warped.
-5. While a ride is playing, −1 / +1 minute replans whatever is left. Skip jumps to the next segment. The screen wake lock and the media session keep the lock screen useful.
+2. Intact mode is the default. Songs play from start to end, ordered by energy to match the intensity shape. If the crate is longer than the ride, Ride DJ keeps the whole songs that land closest to the target and fades the last one out, or skips once into its ending. If the crate is shorter, it repeats one long 16–64 bar groove in the middle of a song, with an equal-power crossfade on the loop, or loops the whole song when it is too short to split.
+3. Songs crossfade over 16 or 32 bars. Playback rate stays within ±3% so a blend never lurches the tempo.
+4. Remix, under Advanced on the ride screen, is the older phrase-chopping planner. It stays off unless you turn it on.
+5. While a ride is playing, −1 / +1 minute replans whatever is left. Skip jumps to the next song. The screen wake lock and the media session keep the lock screen useful.
 
 The demo button writes four original click tracks (different BPMs and energy curves). No recorded music is stored in this repo.
 
