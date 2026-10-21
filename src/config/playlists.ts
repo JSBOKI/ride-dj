@@ -79,4 +79,32 @@ export const defaultPlaylists: DefaultPlaylist[] = [
       },
     ],
   },
+  {
+    id: "earnest-hair-musical",
+    name: "Earnest! – a Hair-style musical",
+    url: "https://suno.com/playlist/74f508a5-6e1f-45b1-ac2f-aa4868b3425b",
+    note: "Five songs, about 3¾ minutes each (about 19 minutes).",
+    songs: [
+      {
+        title: "Bunburying",
+        url: "https://suno.com/song/d012d177-6d21-4177-b9f0-a690a67286ea",
+      },
+      {
+        title: "A Handbag",
+        url: "https://suno.com/song/f9074f80-ee2e-4a1c-b612-5a3bc4772703",
+      },
+      {
+        title: "Cucumber Sandwiches",
+        url: "https://suno.com/song/715db9e3-2558-410d-9c76-17d81840f486",
+      },
+      {
+        title: "Gwendolen, I Must Propose",
+        url: "https://suno.com/song/3a0759b2-2441-4473-85d8-a99f07c54b38",
+      },
+      {
+        title: "The Line Is Immaterial",
+        url: "https://suno.com/song/95afc1b6-c757-4dea-9178-8d84e05a3904",
+      },
+    ],
+  },
 ]
