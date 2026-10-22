@@ -445,5 +445,5 @@ export function planRemix(
   const segments = layout(drafts)
   const duration = segments.length > 0 ? segments[segments.length - 1].mixEnd : 0
 
-  return { segments, duration, target: targetSeconds, masterBpm, shape, mode: "remix" }
+  return { segments, slices: [], songs: [], duration, target: targetSeconds, masterBpm, shape, mode: "remix" }
 }

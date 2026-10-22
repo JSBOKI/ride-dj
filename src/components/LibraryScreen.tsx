@@ -1,3 +1,5 @@
+import { looksLikeLrc } from "../lib/lyrics.ts"
+import { lyricsFor } from "../lib/song-meta.ts"
 import { useRef, useState } from "react"
 import { Disc3, Link2, Plus, Sparkles, Trash2 } from "lucide-react"
 import { defaultPlaylists } from "../config/playlists.ts"
@@ -67,7 +69,7 @@ export function LibraryScreen() {
           ref={fileRef}
           className="hidden"
           type="file"
-          accept="audio/mpeg,audio/mp4,audio/wav,audio/x-wav,audio/m4a,.mp3,.m4a,.wav"
+          accept="audio/mpeg,audio/mp4,audio/wav,audio/x-wav,audio/m4a,.mp3,.m4a,.wav,.lrc"
           multiple
           onChange={(event) => {
             const files = [...(event.target.files ?? [])]
@@ -221,6 +223,37 @@ export function LibraryScreen() {
                   Remove
                 </Button>
               </div>
+              {!broken && (
+                <details className="text-xs">
+                  <summary className="cursor-pointer text-muted-foreground">
+                    Lyrics {song.lrc ? "· LRC synced" : lyricsFor(song) ? "· from Suno" : ""}
+                  </summary>
+                  <form
+                    className="mt-2 flex flex-col gap-2"
+                    onSubmit={(event) => {
+                      event.preventDefault()
+                      const text = String(new FormData(event.currentTarget).get("lyrics") ?? "").trim()
+                      const isLrc = looksLikeLrc(text)
+                      void library.updateSong({
+                        ...song,
+                        lrc: isLrc ? text : undefined,
+                        lyrics: !isLrc && text ? text : undefined,
+                      })
+                    }}
+                  >
+                    <textarea
+                      name="lyrics"
+                      rows={5}
+                      defaultValue={song.lrc ?? song.lyrics ?? ""}
+                      placeholder={"Paste LRC for exact timing:\n[00:12.50] first line\n[00:16.00] second line\nor plain lyrics (spread over the song)"}
+                      className="rounded-lg bg-muted p-2 font-mono text-xs"
+                    />
+                    <Button type="submit" variant="outline" className="h-9 self-end">
+                      Save lyrics
+                    </Button>
+                  </form>
+                </details>
+              )}
             </Card>
           )
         })}

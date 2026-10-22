@@ -158,8 +158,9 @@ function probeAudioElement(url: string): Promise<boolean> {
  */
 export async function fetchSunoAudio(id: string): Promise<SunoAudioResult> {
   const attempts: { url: string; via: SunoAudioVia }[] = [
-    { url: sunoCdnMp3(id), via: "cdn-mp3" },
+    // The mp4 (AAC) is the asset that allows cross-origin reads; the mp3 is usually 403.
     { url: sunoCdnMp4(id), via: "cdn-mp4" },
+    { url: sunoCdnMp3(id), via: "cdn-mp3" },
   ]
   const notes: string[] = []
   for (const attempt of attempts) {

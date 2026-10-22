@@ -64,32 +64,32 @@ export const DEMO_TRACKS: DemoTrackSpec[] = [
     name: "Warm Spin",
     bpm: 96,
     sections: [
-      { bars: 16, energy: 0.26 },
-      { bars: 16, energy: 0.4 },
+      { bars: 48, energy: 0.26 },
+      { bars: 48, energy: 0.4 },
     ],
   },
   {
     name: "Cadence",
     bpm: 114,
     sections: [
-      { bars: 16, energy: 0.48 },
-      { bars: 16, energy: 0.64 },
+      { bars: 48, energy: 0.48 },
+      { bars: 48, energy: 0.64 },
     ],
   },
   {
     name: "Redline",
     bpm: 132,
     sections: [
-      { bars: 16, energy: 0.78 },
-      { bars: 16, energy: 0.96 },
+      { bars: 48, energy: 0.78 },
+      { bars: 48, energy: 0.96 },
     ],
   },
   {
     name: "Coast",
     bpm: 104,
     sections: [
-      { bars: 16, energy: 0.52 },
-      { bars: 16, energy: 0.28 },
+      { bars: 48, energy: 0.52 },
+      { bars: 48, energy: 0.28 },
     ],
   },
 ]

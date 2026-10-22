@@ -8,7 +8,9 @@
     "build": "tsc -b && vite build",
     "lint": "oxlint",
     "preview": "vite preview --host 0.0.0.0 --port 4179",
-    "test": "vitest run"
+    "test": "vitest run",
+    "prebuild": "node scripts/fetch-suno-meta.mjs || true",
+    "suno-meta": "node scripts/fetch-suno-meta.mjs"
   },
   "dependencies": {
     "@fontsource-variable/geist": "^5.3.0",

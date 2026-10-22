@@ -16,6 +16,7 @@ import {
   putSong,
 } from "../lib/db.ts"
 import { fetchSunoAudio, parseSunoLinks, resolveSunoPlaylist } from "../lib/suno.ts"
+import { bpmHintFor } from "../lib/song-meta.ts"
 import { DEMO_TRACKS, renderClickTrack } from "../lib/synth.ts"
 import type { IntensityShape, PlaylistRecord, SessionRecord, SongRecord } from "../lib/types.ts"
 import { wavBlob } from "../lib/wav.ts"
@@ -45,6 +46,8 @@ interface LibraryContextValue {
   loadDefaultPlaylist: (id: string) => Promise<void>
   generateDemo: () => Promise<void>
   deleteSong: (id: string) => Promise<void>
+  /** Saves a changed song record (new analysis, pasted lyrics) without touching its audio. */
+  updateSong: (song: SongRecord) => Promise<void>
   savePlaylist: (name: string) => Promise<void>
   deletePlaylist: (id: string) => Promise<void>
   saveSession: (input: { targetSeconds: number; shape: IntensityShape }) => Promise<void>
@@ -185,7 +188,13 @@ export function LibraryProvider({ children }: { children: React.ReactNode }) {
       }
       try {
         const buffer = await decodeBlob(fetched.blob)
-        const analysis = analyzeSamples(audioBufferToMono(buffer), buffer.sampleRate, crypto.randomUUID(), item.title)
+        const analysis = analyzeSamples(
+          audioBufferToMono(buffer),
+          buffer.sampleRate,
+          crypto.randomUUID(),
+          item.title,
+          bpmHintFor({ sunoUrl: item.pageUrl }),
+        )
         const record: SongRecord = {
           ...analysis,
           source: "suno",
@@ -300,6 +309,12 @@ export function LibraryProvider({ children }: { children: React.ReactNode }) {
     setError(null)
     const problems: string[] = []
     const ids: string[] = []
+    // A .lrc next to an audio file (same name) supplies exact lyric timings.
+    const lrcByName = new Map<string, string>()
+    for (const file of files) {
+      if (/\.lrc$/i.test(file.name)) lrcByName.set(file.name.replace(/\.[^.]+$/, ""), await file.text())
+    }
+    files = files.filter((file) => !/\.lrc$/i.test(file.name))
     for (let index = 0; index < files.length; index++) {
       const file = files[index]
       setBusy(`Reading ${index + 1} of ${files.length}: ${file.name}`)
@@ -311,7 +326,8 @@ export function LibraryProvider({ children }: { children: React.ReactNode }) {
         const buffer = await decodeBlob(file)
         const name = file.name.replace(/\.[^.]+$/, "") || file.name
         const analysis = analyzeSamples(audioBufferToMono(buffer), buffer.sampleRate, crypto.randomUUID(), name)
-        const record: SongRecord = { ...analysis, source: "file", createdAt: Date.now() }
+        const lrc = lrcByName.get(name)
+        const record: SongRecord = { ...analysis, source: "file", createdAt: Date.now(), ...(lrc ? { lrc } : {}) }
         await putSong(record, file)
         ids.push(record.id)
       } catch {
@@ -388,6 +404,10 @@ export function LibraryProvider({ children }: { children: React.ReactNode }) {
     loadDefaultPlaylist,
     generateDemo,
     deleteSong,
+    updateSong: async (song) => {
+      await putSong(song)
+      setSongs((current) => current.map((item) => (item.id === song.id ? song : item)))
+    },
     savePlaylist: async (name) => {
       const playlist: PlaylistRecord = {
         id: crypto.randomUUID(),

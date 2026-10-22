@@ -1,3 +1,5 @@
+import type { RideProgram, TimedSection } from "./program.ts"
+
 export type PhaseName = "warm-up" | "build" | "peak" | "cool-down"
 
 /** Full ride runs all four phases. The others stay in one gear. */
@@ -22,6 +24,7 @@ export interface TrackAnalysis {
   beatOffset: number
   energy: number
   sections: Section[]
+  analysisVersion?: number
 }
 
 export interface MixSegment {
@@ -58,11 +61,15 @@ export type MixMode = "intact" | "remix"
 
 export interface MixPlan {
   segments: MixSegment[]
+  slices: Slice[]
+  songs: SongSpan[]
   duration: number
   target: number
   masterBpm: number
   shape: IntensityShape
   mode: MixMode
+  program?: RideProgram
+  sectionsTimeline?: TimedSection[]
 }
 
 export interface BpmResult {
@@ -77,6 +84,10 @@ export interface SongRecord extends TrackAnalysis {
   loadNote?: string
   error?: string
   createdAt: number
+  /** Optional LRC lyrics ([mm:ss.xx] line) with exact timings. */
+  lrc?: string
+  /** Plain lyrics without timings. */
+  lyrics?: string
 }
 
 export interface PlaylistRecord {
@@ -95,4 +106,46 @@ export interface SessionRecord {
   targetSeconds: number
   shape: IntensityShape
   songIds: string[]
+}
+
+/** One scheduled buffer source in the mix. Consecutive slices overlap by their fades. */
+export interface Slice {
+  trackId: string
+  trackName: string
+  /** Index into plan.songs. */
+  songIndex: number
+  mixStart: number
+  mixEnd: number
+  /** Source seconds at mixStart. The slice plays forward at playbackRate. */
+  sourceStart: number
+  sourceEnd: number
+  playbackRate: number
+  /** Equal-power fade lengths in output seconds. */
+  fadeIn: number
+  fadeOut: number
+  fadeInBars: number
+  fadeOutBars: number
+  /** "loop" fades are seams inside one song; "blend" fades are song-to-song DJ mixes. */
+  fadeInKind: "none" | "loop" | "blend" | "start"
+  fadeOutKind: "none" | "loop" | "blend" | "end"
+  bpm: number
+}
+
+export interface SongSpan {
+  trackId: string
+  trackName: string
+  mixStart: number
+  mixEnd: number
+  /** BPM heard after rate. */
+  bpm: number
+  playbackRate: number
+  energy: number
+  loops: number
+  loopBars: number
+  /** Bars in the blend into this song (0 for the first). */
+  blendInBars: number
+  /** False when the tempo gap was wider than ±3% so beats drift during the blend. */
+  beatMatched: boolean
+  /** Mix time where the song's strongest section starts, if it is in the ride. */
+  dropAt?: number
 }

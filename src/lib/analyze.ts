@@ -36,9 +36,10 @@ export function analyzeSamples(
   sampleRate: number,
   id: string,
   name: string,
+  hintBpm?: number,
 ): TrackAnalysis {
   const prepared = downsample(samples, sampleRate, 22050)
-  const bpm = detectBpm(prepared.samples, prepared.sampleRate)
+  const bpm = detectBpm(prepared.samples, prepared.sampleRate, hintBpm ? { hintBpm } : {})
   const safeBpm = Number.isFinite(bpm.bpm) && bpm.bpm >= 40 && bpm.bpm <= 240 ? bpm.bpm : 120
   const sections = detectSections(prepared.samples, prepared.sampleRate, safeBpm, bpm.beatOffset)
   const duration = samples.length / sampleRate
@@ -55,5 +56,16 @@ export function analyzeSamples(
     beatOffset: bpm.beatOffset,
     energy,
     sections,
+    analysisVersion: ANALYSIS_VERSION,
   }
+}
+
+/** Bump when beat-grid analysis changes so stored songs are re-analysed at ride start. */
+export const ANALYSIS_VERSION = 2
+
+/** "… 120 BPM …" in a Suno style prompt. */
+export function bpmHintFromTags(tags: string | undefined): number | undefined {
+  const match = tags?.match(/(\d{2,3})\s*bpm/i)
+  const value = match ? Number(match[1]) : NaN
+  return value >= 50 && value <= 220 ? value : undefined
 }
