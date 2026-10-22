@@ -275,6 +275,56 @@ export function LibraryProvider({ children }: { children: React.ReactNode }) {
       setError(preset.note ?? "This playlist doesn't have a URL yet.")
       return
     }
+    if (preset.songs.length > 0 && preset.songs.every((song) => song.audioUrl)) {
+      setError(null)
+      const loaded: string[] = []
+      const problems: string[] = []
+      try {
+        for (let index = 0; index < preset.songs.length; index++) {
+          const item = preset.songs[index]
+          setBusy(`Loading ${index + 1} of ${preset.songs.length}: ${item.title}`)
+          const existing = (await listSongs()).find((song) => song.sunoUrl === item.url && !song.error)
+          if (existing) {
+            loaded.push(existing.id)
+            continue
+          }
+          try {
+            const response = await fetch(item.audioUrl as string, { mode: "cors" })
+            if (!response.ok) throw new Error(`HTTP ${response.status}`)
+            const blob = await response.blob()
+            const buffer = await decodeBlob(blob)
+            const analysis = analyzeSamples(audioBufferToMono(buffer), buffer.sampleRate, crypto.randomUUID(), item.title)
+            const record: SongRecord = {
+              ...analysis,
+              source: "web",
+              sunoUrl: item.url,
+              loadNote: "Decoded the mp3 from the built-in playlist.",
+              createdAt: Date.now(),
+            }
+            await putSong(record, blob)
+            loaded.push(record.id)
+          } catch (reason) {
+            problems.push(`${item.title}: ${reason instanceof Error ? reason.message : "couldn't be loaded"}.`)
+          }
+        }
+        const record: PlaylistRecord = {
+          id: preset.id,
+          name: preset.name,
+          songIds: loaded,
+          sunoUrl: preset.url || undefined,
+          builtin: true,
+          note: preset.note,
+        }
+        await putPlaylist(record)
+        await refresh()
+        setSelectedIds((current) => [...new Set([...current, ...loaded])])
+        if (problems.length > 0) setError(problems.join(" "))
+        setNotice(`${preset.name}: ${loaded.length} song${loaded.length === 1 ? "" : "s"} ready to ride.`)
+      } finally {
+        setBusy(null)
+      }
+      return
+    }
     const lines = [preset.url, ...preset.songs.map((song) => song.url)].filter(Boolean)
     setError(null)
     try {
@@ -302,7 +352,7 @@ export function LibraryProvider({ children }: { children: React.ReactNode }) {
     } finally {
       setBusy(null)
     }
-  }, [addSunoText])
+  }, [addSunoText, refresh])
 
   const addFiles = useCallback(async (files: File[]) => {
     if (files.length === 0) return

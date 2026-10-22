@@ -1,14 +1,16 @@
 /**
- * Default Suno playlists.
+ * Default playlists (Suno links, or built-in mp3s served from /audio).
  *
  * Edit this file to add a playlist URL or to pin song links. Browsers cannot
  * read Suno's playlist API (CORS is limited to suno.com), so `songs` is what
  * Ride DJ loads when live resolution fails.
  */
 export interface DefaultPlaylistSong {
-  /** Public page, https://suno.com/song/<uuid> */
+  /** Public page, https://suno.com/song/<uuid>, or the song's page in another app */
   url: string
   title: string
+  /** Direct mp3 the browser can fetch (same origin or CORS-enabled). Skips Suno resolution. */
+  audioUrl?: string
 }
 
 export interface DefaultPlaylist {
@@ -80,30 +82,40 @@ export const defaultPlaylists: DefaultPlaylist[] = [
     ],
   },
   {
-    id: "earnest-hair-musical",
-    name: "Earnest! – a Hair-style musical",
-    url: "https://suno.com/playlist/74f508a5-6e1f-45b1-ac2f-aa4868b3425b",
-    note: "Five songs, about 3¾ minutes each (about 19 minutes).",
+    id: "earnest-dark-trance",
+    name: "Earnest – Dark Trance Ride",
+    url: "https://onna-no-inai-songs.onrender.com/",
+    note: "Six code-synthesized dark trance tracks, 126 → 140 BPM, about 5–5½ minutes each (about 32 minutes). Also in 文学EDM (Workout · 真面目が肝心).",
     songs: [
       {
-        title: "Bunburying",
-        url: "https://suno.com/song/d012d177-6d21-4177-b9f0-a690a67286ea",
+        title: "Bunbury バンベリー 번버리",
+        url: "https://onna-no-inai-songs.onrender.com/#earnest-trance-1",
+        audioUrl: "/audio/earnest/earnest-trance-1-workout.mp3",
       },
       {
-        title: "A Handbag",
-        url: "https://suno.com/song/f9074f80-ee2e-4a1c-b612-5a3bc4772703",
+        title: "Ernest in Town, Jack in the Country 都会ではアーネスト 도시에선 어니스트",
+        url: "https://onna-no-inai-songs.onrender.com/#earnest-trance-2",
+        audioUrl: "/audio/earnest/earnest-trance-2-workout.mp3",
       },
       {
-        title: "Cucumber Sandwiches",
-        url: "https://suno.com/song/715db9e3-2558-410d-9c76-17d81840f486",
+        title: "A Handbag? ハンドバッグ？ 핸드백?",
+        url: "https://onna-no-inai-songs.onrender.com/#earnest-trance-3",
+        audioUrl: "/audio/earnest/earnest-trance-3-workout.mp3",
       },
       {
-        title: "Gwendolen, I Must Propose",
-        url: "https://suno.com/song/3a0759b2-2441-4473-85d8-a99f07c54b38",
+        title: "Quite Dead すっかり死んだ 완전히 죽었다",
+        url: "https://onna-no-inai-songs.onrender.com/#earnest-trance-4",
+        audioUrl: "/audio/earnest/earnest-trance-4-workout.mp3",
       },
       {
-        title: "The Line Is Immaterial",
-        url: "https://suno.com/song/95afc1b6-c757-4dea-9178-8d84e05a3904",
+        title: "Never Simple 決して単純ではない 결코 단순하지 않다",
+        url: "https://onna-no-inai-songs.onrender.com/#earnest-trance-5",
+        audioUrl: "/audio/earnest/earnest-trance-5-workout.mp3",
+      },
+      {
+        title: "The Vital Importance 真面目が肝心 진지함의 중요성",
+        url: "https://onna-no-inai-songs.onrender.com/#earnest-trance-6",
+        audioUrl: "/audio/earnest/earnest-trance-6-workout.mp3",
       },
     ],
   },

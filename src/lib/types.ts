@@ -5,7 +5,7 @@ export type PhaseName = "warm-up" | "build" | "peak" | "cool-down"
 /** Full ride runs all four phases. The others stay in one gear. */
 export type IntensityShape = "full-ride" | PhaseName
 
-export type SongSource = "file" | "suno" | "demo"
+export type SongSource = "file" | "suno" | "demo" | "web"
 
 export interface Section {
   /** Seconds from the start of the track. */

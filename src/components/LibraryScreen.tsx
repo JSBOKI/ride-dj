@@ -100,7 +100,7 @@ export function LibraryScreen() {
                     <p className="mt-1 text-xs text-muted-foreground">{saved.songIds.length} loaded on this device</p>
                   )}
                 </div>
-                <Badge variant="outline">Suno</Badge>
+                <Badge variant="outline">{preset.songs.some((song) => song.audioUrl) ? "Built-in" : "Suno"}</Badge>
               </div>
               <Button
                 className="h-11"
